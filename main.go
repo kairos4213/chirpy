@@ -15,15 +15,15 @@ func main() {
 	const filePathRoot = "."
 	const port = "8080"
 
-	cfg := &apiConfig{fileserverHits: atomic.Int32{}}
+	cfg := apiConfig{fileserverHits: atomic.Int32{}}
 
 	fServerHandler := http.StripPrefix("/app/", http.FileServer(http.Dir(filePathRoot)))
 
 	mux := http.NewServeMux()
 	mux.Handle("/app/", cfg.middleWareMetricsInc(fServerHandler))
 	mux.HandleFunc("GET /api/healthz", handlerReadiness)
-	mux.HandleFunc("GET /api/metrics", cfg.handlerPrintMetrics)
-	mux.HandleFunc("POST /api/reset", cfg.handlerResetMetrics)
+	mux.HandleFunc("GET /admin/metrics", cfg.handlerMetrics)
+	mux.HandleFunc("POST /admin/reset", cfg.handlerResetMetrics)
 
 	server := &http.Server{
 		Handler: mux,
@@ -44,18 +44,24 @@ func (cfg *apiConfig) middleWareMetricsInc(next http.Handler) http.Handler {
 	})
 }
 
-func (cfg *apiConfig) handlerPrintMetrics(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
+func (cfg *apiConfig) handlerMetrics(w http.ResponseWriter, r *http.Request) {
+	w.Header().Add("Content-Type", "text/html")
 	w.WriteHeader(http.StatusOK)
+
 	serverHits := cfg.fileserverHits.Load()
-	w.Write([]byte(fmt.Sprintf("Hits: %v", serverHits)))
+	htmlTemplate := `<html>
+										<body>
+											<h1>Welcome, Chirpy Admin</h1>
+											<p>Chirpy has been visited %d times!</p>
+										</body>
+									</html>`
+	w.Write([]byte(fmt.Sprintf(htmlTemplate, serverHits)))
 }
 
 func (cfg *apiConfig) handlerResetMetrics(w http.ResponseWriter, r *http.Request) {
 	cfg.fileserverHits.Store(0)
-	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Server hit metrics reset!"))
+	w.Write([]byte("Server hit metric reset!"))
 }
 
 func handlerReadiness(w http.ResponseWriter, r *http.Request) {
