@@ -7,19 +7,23 @@ import (
 	"sync/atomic"
 )
 
+type apiConfig struct {
+	fileserverHits atomic.Int32
+}
+
 func main() {
 	const filePathRoot = "."
 	const port = "8080"
 
 	cfg := &apiConfig{fileserverHits: atomic.Int32{}}
 
-	fServer := http.StripPrefix("/app/", http.FileServer(http.Dir(filePathRoot)))
+	fServerHandler := http.StripPrefix("/app/", http.FileServer(http.Dir(filePathRoot)))
 
 	mux := http.NewServeMux()
-	mux.Handle("/app/", cfg.middleWareMetricsInc(fServer))
-	mux.HandleFunc("/healthz", handlerReadiness)
-	mux.HandleFunc("/metrics", cfg.handlerPrintMetrics)
-	mux.HandleFunc("/reset", cfg.handlerResetMetrics)
+	mux.Handle("/app/", cfg.middleWareMetricsInc(fServerHandler))
+	mux.HandleFunc("GET /api/healthz", handlerReadiness)
+	mux.HandleFunc("GET /api/metrics", cfg.handlerPrintMetrics)
+	mux.HandleFunc("POST /api/reset", cfg.handlerResetMetrics)
 
 	server := &http.Server{
 		Handler: mux,
@@ -33,10 +37,6 @@ func main() {
 	}
 }
 
-type apiConfig struct {
-	fileserverHits atomic.Int32
-}
-
 func (cfg *apiConfig) middleWareMetricsInc(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cfg.fileserverHits.Add(1)
@@ -47,14 +47,12 @@ func (cfg *apiConfig) middleWareMetricsInc(next http.Handler) http.Handler {
 func (cfg *apiConfig) handlerPrintMetrics(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-
 	serverHits := cfg.fileserverHits.Load()
 	w.Write([]byte(fmt.Sprintf("Hits: %v", serverHits)))
 }
 
 func (cfg *apiConfig) handlerResetMetrics(w http.ResponseWriter, r *http.Request) {
 	cfg.fileserverHits.Store(0)
-
 	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Server hit metrics reset!"))
@@ -63,5 +61,5 @@ func (cfg *apiConfig) handlerResetMetrics(w http.ResponseWriter, r *http.Request
 func handlerReadiness(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+	w.Write([]byte(http.StatusText(http.StatusOK)))
 }
