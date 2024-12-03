@@ -1,20 +1,39 @@
 package main
 
 import (
+	"database/sql"
 	"log"
 	"net/http"
+	"os"
 	"sync/atomic"
+
+	"github.com/joho/godotenv"
+	"github.com/kairos4213/chirpy/internal/database"
+	_ "github.com/lib/pq"
 )
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
+	db             *database.Queries
 }
 
 func main() {
 	const filePathRoot = "."
 	const port = "8080"
 
-	cfg := apiConfig{fileserverHits: atomic.Int32{}}
+	godotenv.Load()
+	dbURL := os.Getenv("DB_URL")
+	if dbURL == "" {
+		log.Fatalf("DB_URL must be set")
+	}
+
+	dbConn, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Fatalf("Error establishing connection to database: %v", err)
+	}
+	dbQueries := database.New(dbConn)
+
+	cfg := apiConfig{fileserverHits: atomic.Int32{}, db: dbQueries}
 
 	mux := http.NewServeMux()
 	fServerHandler := http.StripPrefix("/app/", http.FileServer(http.Dir(filePathRoot)))
@@ -32,7 +51,7 @@ func main() {
 	}
 
 	log.Printf("Serving on port: %s\n", port)
-	err := server.ListenAndServe()
+	err = server.ListenAndServe()
 	if err != nil {
 		log.Fatal(err)
 	}
