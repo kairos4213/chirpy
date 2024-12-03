@@ -2,8 +2,18 @@ package main
 
 import "net/http"
 
-func (cfg *apiConfig) handlerResetMetrics(w http.ResponseWriter, r *http.Request) {
+func (cfg *apiConfig) handlerReset(w http.ResponseWriter, r *http.Request) {
+	if cfg.platform != "dev" {
+		respondWithError(w, http.StatusForbidden, "cannot delete reset outside dev environment")
+		return
+	}
+
+	err := cfg.db.DeleteAllUsers(r.Context())
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "error deleting all users - reset cancelled")
+		return
+	}
+
 	cfg.fileserverHits.Store(0)
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("Server hit metric reset!"))
+	respondWithJSON(w, http.StatusOK, "Reset complete!")
 }
