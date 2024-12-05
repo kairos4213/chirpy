@@ -16,6 +16,7 @@ type apiConfig struct {
 	fileserverHits atomic.Int32
 	db             *database.Queries
 	platform       string
+	secretKey      string
 }
 
 func main() {
@@ -26,6 +27,11 @@ func main() {
 	pf := os.Getenv("PLATFORM")
 	if pf == "" {
 		log.Fatal("PLATFORM must be set")
+	}
+
+	sk := os.Getenv("SECRET_KEY")
+	if sk == "" {
+		log.Fatal("SECRET_KEY must be set")
 	}
 
 	dbURL := os.Getenv("DB_URL")
@@ -43,6 +49,7 @@ func main() {
 		fileserverHits: atomic.Int32{},
 		db:             dbQueries,
 		platform:       pf,
+		secretKey:      sk,
 	}
 
 	mux := http.NewServeMux()
@@ -52,7 +59,7 @@ func main() {
 	mux.HandleFunc("GET /api/healthz", handlerReadiness)
 
 	mux.HandleFunc("POST /api/login", cfg.handlerLogin)
-	
+
 	mux.HandleFunc("POST /api/users", cfg.handlerUsersCreate)
 
 	mux.HandleFunc("GET /api/chirps", cfg.handlerChirpsGetAll)
