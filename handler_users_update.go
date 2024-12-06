@@ -17,13 +17,13 @@ func (cfg *apiConfig) handlerUsersUpdate(w http.ResponseWriter, r *http.Request)
 		User
 	}
 
-	accessToken, err := auth.GetBearerToken(r.Header)
+	token, err := auth.GetBearerToken(r.Header)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, err.Error())
 		return
 	}
 
-	userID, err := auth.ValidateJWT(accessToken, cfg.secretKey)
+	userID, err := auth.ValidateJWT(token, cfg.secretKey)
 	if err != nil {
 		respondWithError(w, http.StatusUnauthorized, err.Error())
 		return
