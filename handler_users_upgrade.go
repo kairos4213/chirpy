@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/kairos4213/chirpy/internal/auth"
 )
 
 func (cfg *apiConfig) handlerUsersUpgrade(w http.ResponseWriter, r *http.Request) {
@@ -15,9 +16,20 @@ func (cfg *apiConfig) handlerUsersUpgrade(w http.ResponseWriter, r *http.Request
 		} `json:"data"`
 	}
 
+	key, err := auth.GetAPIKey(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	if key != cfg.polkaKey {
+		respondWithError(w, http.StatusUnauthorized, "API key is invalid")
+		return
+	}
+
 	decoder := json.NewDecoder(r.Body)
 	var params parameters
-	err := decoder.Decode(&params)
+	err = decoder.Decode(&params)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "error decoding user info")
 		return
