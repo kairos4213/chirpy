@@ -7,7 +7,14 @@ import (
 )
 
 func (cfg *apiConfig) handlerChirpsGetAll(w http.ResponseWriter, r *http.Request) {
-	chirps, err := cfg.db.GetAllChirps(r.Context())
+	authorID := r.URL.Query().Get("author_id")
+	userIDParam, err := uuid.Parse(authorID)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	chirps, err := cfg.db.GetAllChirps(r.Context(), userIDParam)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "error getting chirps")
 		return
