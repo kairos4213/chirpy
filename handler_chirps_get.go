@@ -2,32 +2,47 @@ package main
 
 import (
 	"net/http"
+	"sort"
 
 	"github.com/google/uuid"
 )
 
 func (cfg *apiConfig) handlerChirpsGetAll(w http.ResponseWriter, r *http.Request) {
-	authorID := r.URL.Query().Get("author_id")
-	userIDParam, err := uuid.Parse(authorID)
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	chirps, err := cfg.db.GetAllChirps(r.Context(), userIDParam)
+	chirps, err := cfg.db.GetAllChirps(r.Context())
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "error getting chirps")
 		return
 	}
 
+	authorID := uuid.Nil
+	authorIDString := r.URL.Query().Get("author_id")
+	if authorIDString != "" {
+		authorID, err = uuid.Parse(authorIDString)
+		if err != nil {
+			respondWithError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
+
 	resp := []Chirp{}
 	for _, chirp := range chirps {
+		if authorID != uuid.Nil && chirp.UserID != authorID {
+			continue
+		}
+
 		resp = append(resp, Chirp{
 			ID:        chirp.ID,
 			CreatedAt: chirp.CreatedAt,
 			UpdatedAt: chirp.UpdatedAt,
 			Body:      chirp.Body,
 			UserID:    chirp.UserID,
+		})
+	}
+
+	sortParam := r.URL.Query().Get("sort")
+	if sortParam == "desc" {
+		sort.Slice(resp, func(i, j int) bool {
+			return resp[i].CreatedAt.After(resp[j].CreatedAt)
 		})
 	}
 
